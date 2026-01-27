@@ -8,6 +8,9 @@ on:
 permissions:
   contents: read
 
+env:
+  UV_VERSION: "0.9.27"
+
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -15,6 +18,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v7
         with:
+          version: ${{ env.UV_VERSION }}
           enable-cache: true
       - run: uv sync --locked --only-group lint
       - run: uv run ruff check .
@@ -29,6 +33,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v7
         with:
+          version: ${{ env.UV_VERSION }}
           enable-cache: true
           python-version: ${{ matrix.python-version }}
       - run: uv sync --locked --only-group test
@@ -40,6 +45,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v7
         with:
+          version: ${{ env.UV_VERSION }}
           enable-cache: true
       - run: uv sync --locked
       - run: uv export --no-hashes > requirements.txt

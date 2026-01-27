@@ -42,7 +42,7 @@ dev = [
     { include-group = "lint" },
     { include-group = "test" },
 ]
-lint = ["ruff>=0.9.0"]
+lint = ["ruff>=0.14.14"]
 test = ["pytest>=8.0.0"]
 
 [build-system]
