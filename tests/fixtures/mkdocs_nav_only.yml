@@ -1,0 +1,12 @@
+site_name: Test Site
+site_description: A test site
+site_url: https://test.com/
+
+nav:
+  - Home: index.md
+  - Guide:
+    - Install: install.md
+    - Usage: usage.md
+
+plugins:
+  - search

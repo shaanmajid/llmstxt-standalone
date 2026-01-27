@@ -1,0 +1,19 @@
+site_name: Test Site
+site_description: A test site
+site_url: https://test.com/
+
+nav:
+  - Home: index.md
+  - Guide:
+    - Install: install.md
+
+plugins:
+  - search
+  - llmstxt:
+      markdown_description: |
+        Custom description for LLMs.
+      full_output: llms-full.txt
+      sections:
+        Getting Started:
+          - index.md
+          - install.md
