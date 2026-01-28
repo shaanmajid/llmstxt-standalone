@@ -5,8 +5,8 @@ site_url: https://test.com/
 nav:
   - Home: index.md
   - Guide:
-    - Install: install.md
-    - Usage: usage.md
+      - Install: install.md
+      - Usage: usage.md
 
 plugins:
   - search
