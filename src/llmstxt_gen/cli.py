@@ -14,6 +14,7 @@ from llmstxt_gen.generate import generate_llms_txt
 app = typer.Typer(
     help="Generate llms.txt from built HTML documentation.",
     no_args_is_help=False,
+    context_settings={"help_option_names": ["-h", "--help"]},
 )
 
 
