@@ -1,0 +1,107 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions: {}
+
+jobs:
+  build:
+    name: Build distribution
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+
+      - name: Verify tag matches package version
+        id: version
+        run: |
+          # Extract version from pyproject.toml
+          pkg_version=$(grep -E '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+          # Extract version from git tag (strip leading 'v' if present)
+          tag_version="${GITHUB_REF_NAME#v}"
+
+          echo "Package version: $pkg_version"
+          echo "Tag version: $tag_version"
+
+          if [ "$pkg_version" != "$tag_version" ]; then
+            echo "::error::Version mismatch: pyproject.toml has $pkg_version but tag is $tag_version"
+            exit 1
+          fi
+
+          echo "version=$pkg_version" >> "$GITHUB_OUTPUT"
+
+      - uses: astral-sh/setup-uv@61cb8a9741eeb8a550a1b8544337180c0fc8476b # v7.2.0
+        with:
+          enable-cache: true
+
+      - name: Build package
+        run: uv build
+
+      - name: Upload distribution artifacts
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish to PyPI
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      id-token: write # Required for OIDC trusted publishing
+      attestations: write # Required for artifact attestations
+    environment:
+      name: pypi
+      url: https://pypi.org/project/llmstxt-gen/${{ needs.build.outputs.version }}/
+    steps:
+      - name: Download distribution artifacts
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
+        with:
+          attestations: true
+
+  verify:
+    name: Verify installation
+    runs-on: ubuntu-latest
+    needs: [build, publish]
+    steps:
+      - uses: astral-sh/setup-uv@61cb8a9741eeb8a550a1b8544337180c0fc8476b # v7.2.0
+        with:
+          enable-cache: false
+
+      - name: Wait for PyPI to index package
+        run: sleep 30
+
+      - name: Install from PyPI and verify
+        env:
+          EXPECTED_VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          # Create a temporary project to install the package
+          uv init --no-progress verify-install
+          cd verify-install
+          uv add "llmstxt-gen==$EXPECTED_VERSION"
+
+          # Verify the CLI is accessible and shows help
+          uv run llmstxt-gen --help
+
+          # Verify version matches
+          version_output=$(uv run llmstxt-gen --version)
+          echo "Version output: $version_output"
+          echo "$version_output" | grep -q "$EXPECTED_VERSION" || {
+            echo "::error::Version mismatch in installed package"
+            exit 1
+          }
