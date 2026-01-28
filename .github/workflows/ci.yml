@@ -39,7 +39,9 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    needs: [hooks, typecheck]
     strategy:
+      fail-fast: true
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
@@ -49,12 +51,14 @@ jobs:
       - uses: astral-sh/setup-uv@61cb8a9741eeb8a550a1b8544337180c0fc8476b # v7.2.0
         with:
           enable-cache: true
+          cache-suffix: ${{ matrix.python-version }}
           python-version: ${{ matrix.python-version }}
       - run: uv sync --locked --only-group test
-      - run: uv run pytest
+      - run: uv run --frozen pytest
 
   security:
     runs-on: ubuntu-latest
+    needs: [hooks, typecheck]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
@@ -63,7 +67,7 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --locked
-      - run: uv export --no-hashes > requirements.txt
+      - run: uv export --no-hashes --no-dev --no-emit-project > requirements.txt
       - uses: pypa/gh-action-pip-audit@1220774d901786e6f652ae159f7b6bc8fea6d266 # v1.1.0
         with:
           inputs: requirements.txt
