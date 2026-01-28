@@ -29,10 +29,10 @@ def md_path_to_html_path(
 
 
 def md_path_to_md_url(site_url: str, md_path: str) -> str:
-    """Convert docs/foo.md path to direct markdown URL."""
+    """Convert docs/foo.md path to HTML page URL on the deployed site."""
     if md_path == "index.md":
-        return f"{site_url}/index.md"
-    return f"{site_url}/{md_path.replace('.md', '')}/index.md"
+        return f"{site_url}/"
+    return f"{site_url}/{md_path.replace('.md', '')}/"
 
 
 def generate_llms_txt(

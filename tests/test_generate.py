@@ -49,10 +49,11 @@ def test_md_path_to_html_path_without_directory_urls():
 def test_md_path_to_md_url():
     site_url = "https://example.com"
 
-    assert md_path_to_md_url(site_url, "index.md") == "https://example.com/index.md"
+    assert md_path_to_md_url(site_url, "index.md") == "https://example.com/"
+    assert md_path_to_md_url(site_url, "install.md") == "https://example.com/install/"
     assert (
-        md_path_to_md_url(site_url, "install.md")
-        == "https://example.com/install/index.md"
+        md_path_to_md_url(site_url, "guide/intro.md")
+        == "https://example.com/guide/intro/"
     )
 
 
