@@ -37,6 +37,7 @@ llmstxt-gen = "llmstxt_gen.cli:app"
 
 [project.urls]
 Repository = "https://github.com/shaanmajid/llmstxt-gen"
+Issues = "https://github.com/shaanmajid/llmstxt-gen/issues"
 
 [dependency-groups]
 dev = [
