@@ -90,7 +90,7 @@ typecheck = [
 requires-dist = [
     { name = "beautifulsoup4", specifier = ">=4.12" },
     { name = "markdownify", specifier = ">=0.14,<2.0" },
-    { name = "mdformat", specifier = ">=0.7,<0.8" },
+    { name = "mdformat", specifier = ">=0.7,<2.0" },
     { name = "mdformat-tables", specifier = ">=1.0" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "typer", specifier = ">=0.9.0" },
