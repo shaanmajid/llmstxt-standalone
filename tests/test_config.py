@@ -77,3 +77,20 @@ def test_load_config_mapping_style_plugins():
     assert config.full_output == "llms-full.txt"
     assert "Getting Started" in config.sections
     assert config.sections["Getting Started"] == ["index.md", "install.md"]
+
+
+def test_load_config_empty_llmstxt_plugin():
+    """Test that empty llmstxt config (llmstxt: {}) uses defaults, not nav fallback.
+
+    When a user explicitly declares the llmstxt plugin with no options,
+    we should use default values, not fall back to deriving sections from nav.
+    """
+    config = load_config(FIXTURES / "mkdocs_empty_llmstxt.yml")
+
+    assert config.site_name == "Test Site"
+    # Empty config means empty markdown_description, not nav-derived
+    assert config.markdown_description == ""
+    # Default full_output
+    assert config.full_output == "llms-full.txt"
+    # Empty sections (not nav-derived) since no sections specified
+    assert config.sections == {}

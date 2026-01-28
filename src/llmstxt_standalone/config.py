@@ -67,14 +67,13 @@ def load_config(config_path: Path) -> Config:
     site_description = raw.get("site_description", "")
     site_url = raw.get("site_url", "").rstrip("/")
     nav = raw.get("nav", [])
-    # MkDocs defaults use_directory_urls to true; YAML BaseLoader returns strings
-    use_directory_urls_raw = raw.get("use_directory_urls", "true")
-    use_directory_urls = use_directory_urls_raw not in ("false", "False", False)
+    # MkDocs defaults use_directory_urls to true
+    use_directory_urls = raw.get("use_directory_urls", True)
 
     # Extract llmstxt plugin config if present
     llmstxt_config = _get_llmstxt_config(raw)
 
-    if llmstxt_config:
+    if llmstxt_config is not None:
         markdown_description = llmstxt_config.get("markdown_description", "")
         full_output = llmstxt_config.get("full_output", "llms-full.txt")
         content_selector = llmstxt_config.get("content_selector")
