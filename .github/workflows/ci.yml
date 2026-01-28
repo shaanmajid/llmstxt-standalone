@@ -12,19 +12,16 @@ env:
   UV_VERSION: "0.9.27"
 
 jobs:
-  lint:
+  hooks:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
-      - uses: astral-sh/setup-uv@61cb8a9741eeb8a550a1b8544337180c0fc8476b # v7.2.0
+      - uses: j178/prek-action@ef075ff6f80a73aeb8facb7dd22f66f344b1d17a # v1.0.12
         with:
-          version: ${{ env.UV_VERSION }}
-          enable-cache: true
-      - run: uv sync --locked --only-group lint
-      - run: uv run ruff check .
-      - run: uv run ruff format --check .
+          # renovate: datasource=pypi depName=prek
+          prek-version: "0.3.0"
 
   typecheck:
     runs-on: ubuntu-latest
