@@ -59,3 +59,21 @@ def test_yaml_types_parsed_correctly():
     # null should be None, not the string "null"
     assert config.content_selector is None
     assert config.content_selector != "null"
+
+
+def test_load_config_mapping_style_plugins():
+    """Test that mapping-style plugins config is handled correctly.
+
+    MkDocs supports both list and mapping styles for plugins:
+    - List: plugins: [- llmstxt: {...}]
+    - Mapping: plugins: {llmstxt: {...}}
+    """
+    config = load_config(FIXTURES / "mkdocs_mapping_plugins.yml")
+
+    assert config.site_name == "Test Site"
+    assert config.site_description == "A test site with mapping-style plugins"
+    assert config.site_url == "https://test.com"
+    assert "Custom description" in config.markdown_description
+    assert config.full_output == "llms-full.txt"
+    assert "Getting Started" in config.sections
+    assert config.sections["Getting Started"] == ["index.md", "install.md"]
