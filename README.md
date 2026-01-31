@@ -1,5 +1,7 @@
 # llmstxt-standalone
 
+[![codecov](https://codecov.io/gh/shaanmajid/llmstxt-standalone/graph/badge.svg)](https://codecov.io/gh/shaanmajid/llmstxt-standalone)
+
 Generate `/llms.txt` and `/llms-full.txt` from built HTML documentation, following the [llms.txt spec](https://llmstxt.org/).
 
 > **When to use this:** This tool works on pre-built HTML, making it useful for environments that can't run MkDocs plugins (e.g., [Zensical](https://zensical.com/)) or when you want llms.txt generation as a separate build step. If you're using standard MkDocs, also consider [mkdocs-llmstxt](https://github.com/pawamoy/mkdocs-llmstxt).

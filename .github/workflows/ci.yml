@@ -54,7 +54,14 @@ jobs:
           cache-suffix: ${{ matrix.python-version }}
           python-version: ${{ matrix.python-version }}
       - run: uv sync --locked --only-group test
-      - run: uv run --frozen pytest
+      - run: uv run --frozen pytest --cov=llmstxt_standalone --cov-report=xml
+      - name: Upload coverage to Codecov
+        if: matrix.python-version == '3.12'
+        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
+        with:
+          files: coverage.xml
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   security:
     runs-on: ubuntu-latest
