@@ -112,12 +112,16 @@ def main(
         config=cfg,
         site_dir=site_dir,
     )
-    markdown_files = write_markdown_files(
-        build.pages,
-        output_dir=out_dir,
-        use_directory_urls=cfg.use_directory_urls,
-        dry_run=dry_run,
-    )
+    try:
+        markdown_files = write_markdown_files(
+            build.pages,
+            output_dir=out_dir,
+            use_directory_urls=cfg.use_directory_urls,
+            dry_run=dry_run,
+        )
+    except (OSError, ValueError) as exc:
+        typer.secho(f"Error writing markdown files: {exc}", fg="red", err=True)
+        raise typer.Exit(1) from None
 
     # Define output paths
     llms_path = out_dir / "llms.txt"
@@ -130,9 +134,13 @@ def main(
     else:
         action = "Generated"
         color = "green"
-        out_dir.mkdir(parents=True, exist_ok=True)
-        llms_path.write_text(build.llms_txt, encoding="utf-8")
-        full_path.write_text(build.llms_full_txt, encoding="utf-8")
+        try:
+            out_dir.mkdir(parents=True, exist_ok=True)
+            llms_path.write_text(build.llms_txt, encoding="utf-8")
+            full_path.write_text(build.llms_full_txt, encoding="utf-8")
+        except OSError as exc:
+            typer.secho(f"Error writing output files: {exc}", fg="red", err=True)
+            raise typer.Exit(1) from None
 
     log(f"{action} {llms_path} ({len(build.llms_txt):,} bytes)", color)
     log(f"{action} {full_path} ({len(build.llms_full_txt):,} bytes)", color)

@@ -21,6 +21,27 @@ def _escape_markdown_link_text(text: str) -> str:
     return text.replace("[", r"\[").replace("]", r"\]")
 
 
+def _is_index_md(md_path: str) -> bool:
+    return md_path == "index.md" or md_path.endswith("/index.md")
+
+
+def _ensure_safe_md_path(md_path: str) -> Path:
+    path = Path(md_path)
+    if path.is_absolute() or path.drive:
+        raise ValueError(f"Markdown path must be relative: {md_path}")
+    if ".." in path.parts:
+        raise ValueError(f"Markdown path must not contain '..': {md_path}")
+    return path
+
+
+def _ensure_within_dir(base_dir: Path, path: Path, label: str) -> Path:
+    base_resolved = base_dir.resolve(strict=False)
+    path_resolved = path.resolve(strict=False)
+    if not path_resolved.is_relative_to(base_resolved):
+        raise ValueError(f"{label} resolves outside {base_resolved}: {path}")
+    return path
+
+
 def md_path_to_html_path(
     site_dir: Path, md_path: str, use_directory_urls: bool = True
 ) -> Path:
@@ -35,11 +56,15 @@ def md_path_to_html_path(
         Path to the corresponding HTML file.
     """
     # Handle index.md at any level (root or nested like foo/bar/index.md)
-    if md_path == "index.md" or md_path.endswith("/index.md"):
-        return site_dir / md_path.replace(".md", ".html")
+    safe_md_path = _ensure_safe_md_path(md_path)
+    if _is_index_md(md_path):
+        html_path = site_dir / safe_md_path.with_suffix(".html")
+        return _ensure_within_dir(site_dir, html_path, "HTML path")
     if use_directory_urls:
-        return site_dir / md_path.replace(".md", "") / "index.html"
-    return site_dir / md_path.replace(".md", ".html")
+        html_path = site_dir / safe_md_path.with_suffix("") / "index.html"
+        return _ensure_within_dir(site_dir, html_path, "HTML path")
+    html_path = site_dir / safe_md_path.with_suffix(".html")
+    return _ensure_within_dir(site_dir, html_path, "HTML path")
 
 
 def md_path_to_page_url(
@@ -58,13 +83,13 @@ def md_path_to_page_url(
         URL to the markdown file on the deployed site.
     """
     if not site_url:
-        if md_path == "index.md" or md_path.endswith("/index.md"):
+        if _is_index_md(md_path):
             return md_path
         if use_directory_urls:
             return md_path.replace(".md", "") + "/index.md"
         return md_path
     # Handle index.md at any level (root or nested like foo/bar/index.md)
-    if md_path == "index.md" or md_path.endswith("/index.md"):
+    if _is_index_md(md_path):
         return f"{site_url}/{md_path}"
     if use_directory_urls:
         return f"{site_url}/{md_path.replace('.md', '')}/index.md"
@@ -85,11 +110,15 @@ def md_path_to_output_md_path(
         Path where the markdown file should be written.
     """
     # Handle index.md at any level (root or nested like foo/bar/index.md)
-    if md_path == "index.md" or md_path.endswith("/index.md"):
-        return site_dir / md_path
+    safe_md_path = _ensure_safe_md_path(md_path)
+    if _is_index_md(md_path):
+        output_path = site_dir / safe_md_path
+        return _ensure_within_dir(site_dir, output_path, "Output path")
     if use_directory_urls:
-        return site_dir / md_path.replace(".md", "") / "index.md"
-    return site_dir / md_path
+        output_path = site_dir / safe_md_path.with_suffix("") / "index.md"
+        return _ensure_within_dir(site_dir, output_path, "Output path")
+    output_path = site_dir / safe_md_path
+    return _ensure_within_dir(site_dir, output_path, "Output path")
 
 
 @dataclass
@@ -162,9 +191,13 @@ def build_llms_output(
         section_entries: list[str] = []
 
         for md_path in section_pages:
-            html_path = md_path_to_html_path(
-                site_dir, md_path, config.use_directory_urls
-            )
+            try:
+                html_path = md_path_to_html_path(
+                    site_dir, md_path, config.use_directory_urls
+                )
+            except ValueError as exc:
+                skipped.append((site_dir / md_path, str(exc)))
+                continue
 
             if not html_path.exists():
                 skipped.append((html_path, "HTML file not found"))
@@ -174,6 +207,9 @@ def build_llms_output(
                 html = html_path.read_text(encoding="utf-8")
             except UnicodeDecodeError:
                 skipped.append((html_path, "HTML file has encoding errors"))
+                continue
+            except OSError as exc:
+                skipped.append((html_path, f"Failed to read HTML file: {exc}"))
                 continue
 
             # Extract title from HTML, fall back to config title
@@ -191,7 +227,12 @@ def build_llms_output(
             section_entries.append(f"- [{escaped_title}]({page_url})")
 
             # Convert content for llms-full.txt
-            content = html_to_markdown(html, config.content_selector)
+            try:
+                content = html_to_markdown(html, config.content_selector)
+            except Exception as exc:
+                warning = f"Failed to convert HTML from {html_path}: {exc}"
+                warnings.append(warning)
+                content = ""
 
             if content:
                 full_lines.append(f"## {title}")
@@ -248,8 +289,11 @@ def write_markdown_files(
             output_dir, page.md_path, use_directory_urls
         )
         if not dry_run:
-            output_md_path.parent.mkdir(parents=True, exist_ok=True)
-            output_md_path.write_text(page.content, encoding="utf-8")
+            try:
+                output_md_path.parent.mkdir(parents=True, exist_ok=True)
+                output_md_path.write_text(page.content, encoding="utf-8")
+            except OSError as exc:
+                raise OSError(f"Failed to write {output_md_path}: {exc}") from exc
         markdown_files.append(output_md_path)
     return markdown_files
 
