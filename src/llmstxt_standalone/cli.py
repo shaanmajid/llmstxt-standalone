@@ -40,6 +40,18 @@ def main(
             "--output-dir", "-o", help="Output directory (defaults to site-dir)"
         ),
     ] = None,
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run",
+            "-n",
+            help="Preview what would be generated without writing files",
+        ),
+    ] = False,
+    quiet: Annotated[
+        bool,
+        typer.Option("--quiet", "-q", help="Suppress output (exit code only)"),
+    ] = False,
     verbose: Annotated[
         bool,
         typer.Option("--verbose", "-v", help="Show detailed progress"),
@@ -59,15 +71,24 @@ def main(
     # Resolve output directory
     out_dir = output_dir or site_dir
 
+    # quiet overrides verbose
+    if quiet:
+        verbose = False
+
+    def log(msg: str, color: str = "green") -> None:
+        if not quiet:
+            typer.secho(msg, fg=color)
+
     # Validate inputs
     if not config.exists():
-        typer.echo(f"Error: Config file not found: {config}", err=True)
+        typer.secho(f"Error: Config file not found: {config}", fg="red", err=True)
         raise typer.Exit(1)
 
     if not site_dir.exists():
-        typer.echo(f"Error: Site directory not found: {site_dir}", err=True)
-        typer.echo(
+        typer.secho(f"Error: Site directory not found: {site_dir}", fg="red", err=True)
+        typer.secho(
             "Hint: Run 'mkdocs build' first to generate the HTML documentation.",
+            fg="yellow",
             err=True,
         )
         raise typer.Exit(1)
@@ -76,31 +97,43 @@ def main(
     try:
         cfg = load_config(config)
     except Exception as e:
-        typer.echo(f"Error loading config: {e}", err=True)
+        typer.secho(f"Error loading config: {e}", fg="red", err=True)
         raise typer.Exit(1) from None
 
-    if verbose:
+    if verbose and not quiet:
         typer.echo(f"Site: {cfg.site_name}")
         typer.echo(f"Sections: {list(cfg.sections.keys())}")
+        if dry_run:
+            typer.echo("Dry run - no files will be written")
 
     # Generate content
-    llms_txt, llms_full_txt = generate_llms_txt(
+    result = generate_llms_txt(
         config=cfg,
         site_dir=site_dir,
+        output_dir=out_dir,
         verbose=verbose,
+        dry_run=dry_run,
+        warn_on_empty=not quiet,
     )
 
-    # Write output files
-    out_dir.mkdir(parents=True, exist_ok=True)
-
+    # Define output paths
     llms_path = out_dir / "llms.txt"
-    llms_path.write_text(llms_txt, encoding="utf-8")
-
     full_path = out_dir / cfg.full_output
-    full_path.write_text(llms_full_txt, encoding="utf-8")
 
-    typer.echo(f"Generated {llms_path} ({len(llms_txt):,} bytes)")
-    typer.echo(f"Generated {full_path} ({len(llms_full_txt):,} bytes)")
+    # Write output files (skip in dry-run mode)
+    if dry_run:
+        action = "Would generate"
+        color = "yellow"
+    else:
+        action = "Generated"
+        color = "green"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        llms_path.write_text(result.llms_txt, encoding="utf-8")
+        full_path.write_text(result.llms_full_txt, encoding="utf-8")
+
+    log(f"{action} {llms_path} ({len(result.llms_txt):,} bytes)", color)
+    log(f"{action} {full_path} ({len(result.llms_full_txt):,} bytes)", color)
+    log(f"{action} {len(result.markdown_files)} markdown files", color)
 
 
 if __name__ == "__main__":

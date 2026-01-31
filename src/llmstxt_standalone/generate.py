@@ -2,10 +2,24 @@
 
 from __future__ import annotations
 
+import warnings
+from dataclasses import dataclass
 from pathlib import Path
 
 from llmstxt_standalone.config import Config
-from llmstxt_standalone.convert import html_to_markdown
+from llmstxt_standalone.convert import extract_title_from_html, html_to_markdown
+
+
+def _escape_markdown_link_text(text: str) -> str:
+    """Escape characters that break markdown link syntax.
+
+    Args:
+        text: The link text to escape.
+
+    Returns:
+        Text with [ and ] escaped as \\[ and \\].
+    """
+    return text.replace("[", r"\[").replace("]", r"\]")
 
 
 def md_path_to_html_path(
@@ -21,48 +35,97 @@ def md_path_to_html_path(
     Returns:
         Path to the corresponding HTML file.
     """
-    if md_path == "index.md":
-        return site_dir / "index.html"
+    # Handle index.md at any level (root or nested like foo/bar/index.md)
+    if md_path == "index.md" or md_path.endswith("/index.md"):
+        return site_dir / md_path.replace(".md", ".html")
     if use_directory_urls:
         return site_dir / md_path.replace(".md", "") / "index.html"
     return site_dir / md_path.replace(".md", ".html")
 
 
-def md_path_to_md_url(
-    site_url: str, md_path: str, use_directory_urls: bool = True
+def md_path_to_page_url(
+    site_url: str,
+    md_path: str,
+    use_directory_urls: bool = True,
 ) -> str:
-    """Convert docs/foo.md path to HTML page URL on the deployed site.
+    """Convert docs/foo.md path to markdown file URL on the deployed site.
 
     Args:
         site_url: Base URL of the site.
         md_path: Relative markdown file path (e.g., "install.md").
-        use_directory_urls: If True, URLs end with /; if False, URLs end with .html.
+        use_directory_urls: If True, directory-style URLs; if False, flat URLs.
 
     Returns:
-        URL to the page on the deployed site.
+        URL to the markdown file on the deployed site.
     """
-    if md_path == "index.md":
-        return f"{site_url}/"
+    if not site_url:
+        if md_path == "index.md" or md_path.endswith("/index.md"):
+            return md_path
+        if use_directory_urls:
+            return md_path.replace(".md", "") + "/index.md"
+        return md_path
+    # Handle index.md at any level (root or nested like foo/bar/index.md)
+    if md_path == "index.md" or md_path.endswith("/index.md"):
+        return f"{site_url}/{md_path}"
     if use_directory_urls:
-        return f"{site_url}/{md_path.replace('.md', '')}/"
-    return f"{site_url}/{md_path.replace('.md', '.html')}"
+        return f"{site_url}/{md_path.replace('.md', '')}/index.md"
+    return f"{site_url}/{md_path}"
+
+
+def md_path_to_output_md_path(
+    site_dir: Path, md_path: str, use_directory_urls: bool = True
+) -> Path:
+    """Convert docs/foo.md path to site markdown output path.
+
+    Args:
+        site_dir: Path to the built site directory.
+        md_path: Relative markdown file path (e.g., "install.md").
+        use_directory_urls: If True, outputs to foo/index.md; if False, outputs to foo.md.
+
+    Returns:
+        Path where the markdown file should be written.
+    """
+    # Handle index.md at any level (root or nested like foo/bar/index.md)
+    if md_path == "index.md" or md_path.endswith("/index.md"):
+        return site_dir / md_path
+    if use_directory_urls:
+        return site_dir / md_path.replace(".md", "") / "index.md"
+    return site_dir / md_path
+
+
+@dataclass
+class GenerateResult:
+    """Result of llms.txt generation."""
+
+    llms_txt: str
+    llms_full_txt: str
+    markdown_files: list[Path]
 
 
 def generate_llms_txt(
     config: Config,
     site_dir: Path,
+    output_dir: Path | None = None,
     verbose: bool = False,
-) -> tuple[str, str]:
-    """Generate llms.txt and llms-full.txt content.
+    dry_run: bool = False,
+    warn_on_empty: bool = True,
+) -> GenerateResult:
+    """Generate llms.txt, llms-full.txt, and per-page markdown files.
 
     Args:
         config: Resolved configuration.
         site_dir: Path to built HTML site directory.
+        output_dir: Path to write output files. Defaults to site_dir.
         verbose: Whether to print progress.
+        dry_run: If True, don't write markdown files.
+        warn_on_empty: If True, emit a warning when extraction yields empty output.
 
     Returns:
-        Tuple of (llms_txt content, llms_full_txt content).
+        GenerateResult with content and list of markdown files (written or would-be).
     """
+    if output_dir is None:
+        output_dir = site_dir
+
     # Build llms.txt (index)
     llms_lines = [f"# {config.site_name}", ""]
 
@@ -81,40 +144,77 @@ def generate_llms_txt(
         full_lines.append(f"> {config.site_description}")
         full_lines.append("")
 
-    # Process sections
-    all_pages: list[tuple[str, str]] = []
+    # Process sections - check HTML existence and extract titles first
+    markdown_files: list[Path] = []
 
     for section_name, pages in config.sections.items():
-        llms_lines.append(f"## {section_name}")
-        llms_lines.append("")
+        section_entries: list[str] = []
 
-        for page in pages:
-            title = config.get_page_title(page)
-            md_url = md_path_to_md_url(config.site_url, page, config.use_directory_urls)
-            llms_lines.append(f"- [{title}]({md_url})")
-            all_pages.append((title, page))
+        for md_path in pages:
+            html_path = md_path_to_html_path(
+                site_dir, md_path, config.use_directory_urls
+            )
 
-        llms_lines.append("")
+            if not html_path.exists():
+                if verbose:
+                    print(f"Warning: {html_path} not found, skipping")
+                continue
 
-    # Convert pages for llms-full.txt
-    for title, md_path in all_pages:
-        html_path = md_path_to_html_path(site_dir, md_path, config.use_directory_urls)
+            try:
+                html = html_path.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                if verbose:
+                    print(f"Warning: {html_path} has encoding errors, skipping")
+                continue
 
-        if not html_path.exists():
-            if verbose:
-                print(f"Warning: {html_path} not found, skipping")
-            continue
+            # Extract title from HTML, fall back to config title
+            title = extract_title_from_html(html) or config.get_page_title(md_path)
 
-        html = html_path.read_text(encoding="utf-8")
-        content = html_to_markdown(html, config.content_selector)
+            page_url = md_path_to_page_url(
+                config.site_url,
+                md_path,
+                config.use_directory_urls,
+            )
+            # Escape brackets in title to produce valid markdown links
+            escaped_title = _escape_markdown_link_text(title)
+            section_entries.append(f"- [{escaped_title}]({page_url})")
 
-        if content:
-            full_lines.append(f"## {title}")
-            full_lines.append("")
-            full_lines.append(content)
-            full_lines.append("")
+            # Convert content for llms-full.txt
+            content = html_to_markdown(html, config.content_selector)
+
+            if content:
+                full_lines.append(f"## {title}")
+                full_lines.append("")
+                full_lines.append(content)
+                full_lines.append("")
+            elif warn_on_empty:
+                warnings.warn(
+                    f"No markdown content extracted from {html_path}; writing empty file",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+
+            # Write individual markdown file (skip in dry-run mode)
+            output_md_path = md_path_to_output_md_path(
+                output_dir, md_path, config.use_directory_urls
+            )
+            if not dry_run:
+                output_md_path.parent.mkdir(parents=True, exist_ok=True)
+                output_md_path.write_text(content, encoding="utf-8")
+            markdown_files.append(output_md_path)
+
+        # Only add section to llms.txt if it has entries
+        if section_entries:
+            llms_lines.append(f"## {section_name}")
+            llms_lines.append("")
+            llms_lines.extend(section_entries)
+            llms_lines.append("")
 
     llms_txt = "\n".join(llms_lines)
     llms_full_txt = "\n".join(full_lines)
 
-    return llms_txt, llms_full_txt
+    return GenerateResult(
+        llms_txt=llms_txt,
+        llms_full_txt=llms_full_txt,
+        markdown_files=markdown_files,
+    )

@@ -1,0 +1,26 @@
+site_name: Édge Çases & Spëcial Chàracters 日本語
+site_description: Testing unicode, special chars & edge cases
+site_url: https://test.com/
+
+nav:
+  - Home: index.md
+  - "Guide: Getting Started":
+      - "Installation & Setup": install.md
+      - "FAQ — Frequently Asked": faq.md
+  - "深层嵌套":
+      - Level 1:
+          - Level 2:
+              - "Deep Page": deep.md
+
+plugins:
+  - llmstxt:
+      markdown_description: |
+        Documentation with spëcial characters: áéíóú
+        日本語テキスト
+        Emoji test: 🚀 ✨ 🎉
+      sections:
+        "Getting Started 🚀":
+          - index.md
+          - install.md
+        "深层文档":
+          - faq.md

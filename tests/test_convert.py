@@ -1,6 +1,6 @@
 """Tests for HTML to Markdown conversion."""
 
-from llmstxt_standalone.convert import html_to_markdown
+from llmstxt_standalone.convert import extract_title_from_html, html_to_markdown
 
 
 def test_html_to_markdown_basic():
@@ -68,3 +68,69 @@ def test_html_to_markdown_default_mkdocs_theme():
     assert "This should be extracted" in result
     assert "navbar" not in result.lower()
     assert "Footer" not in result
+
+
+def test_extract_title_from_html_uses_title_tag():
+    """Test that title is extracted from <title> tag."""
+    html = """
+    <html>
+    <head><title>Page Title</title></head>
+    <body><h1>Different H1</h1></body>
+    </html>
+    """
+    assert extract_title_from_html(html) == "Page Title"
+
+
+def test_extract_title_from_html_strips_site_suffix():
+    """Test that site name suffix is stripped from title."""
+    html = """
+    <html>
+    <head><title>Page Title - My Site</title></head>
+    <body></body>
+    </html>
+    """
+    # Should return just the page title, not "Page Title - My Site"
+    assert extract_title_from_html(html) == "Page Title"
+
+
+def test_extract_title_from_html_fallback_to_h1():
+    """Test that H1 is used when no title tag exists."""
+    html = """
+    <html>
+    <body><h1>Heading One</h1></body>
+    </html>
+    """
+    assert extract_title_from_html(html) == "Heading One"
+
+
+def test_extract_title_from_html_returns_none_when_no_title():
+    """Test that None is returned when no title can be found."""
+    html = "<html><body><p>Just a paragraph</p></body></html>"
+    assert extract_title_from_html(html) is None
+
+
+def test_extract_title_from_html_multiple_dashes():
+    """Test that only the last dash-separated segment is stripped."""
+    html = "<html><head><title>API - Authentication - My Site</title></head></html>"
+    # Should preserve "API - Authentication", only strip " - My Site"
+    assert extract_title_from_html(html) == "API - Authentication"
+
+
+def test_extract_title_from_html_multiline_title():
+    """Test title extraction when title spans multiple lines."""
+    html = """<html><head><title>
+        Page Title
+    </title></head></html>"""
+    assert extract_title_from_html(html) == "Page Title"
+
+
+def test_extract_title_from_html_empty_h1():
+    """Test that whitespace-only H1 returns None, not empty string."""
+    html = "<html><body><h1>   </h1></body></html>"
+    assert extract_title_from_html(html) is None
+
+
+def test_extract_title_from_html_entities():
+    """Test that HTML entities are decoded properly."""
+    html = "<html><head><title>AT&amp;T &amp; Verizon</title></head></html>"
+    assert extract_title_from_html(html) == "AT&T & Verizon"

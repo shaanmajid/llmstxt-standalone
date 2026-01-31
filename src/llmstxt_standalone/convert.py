@@ -73,6 +73,40 @@ _converter = MarkdownConverter(
 )
 
 
+def extract_title_from_html(html: str) -> str | None:
+    """Extract page title from HTML.
+
+    Tries <title> tag first, then falls back to first <h1>.
+    Strips common site name suffixes (e.g., "Page - Site Name" -> "Page").
+
+    Args:
+        html: Raw HTML content.
+
+    Returns:
+        The page title, or None if not found.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+
+    # Try <title> tag first
+    title_tag = soup.find("title")
+    if title_tag:
+        title = title_tag.get_text().strip()
+        # Strip site name suffix (common pattern: "Page Title - Site Name")
+        if " - " in title:
+            title = title.rsplit(" - ", 1)[0].strip()
+        if title:
+            return title
+
+    # Fall back to first <h1>
+    h1_tag = soup.find("h1")
+    if h1_tag:
+        text = h1_tag.get_text().strip()
+        if text:
+            return text
+
+    return None
+
+
 def html_to_markdown(html: str, content_selector: str | None = None) -> str:
     """Convert HTML to clean Markdown.
 

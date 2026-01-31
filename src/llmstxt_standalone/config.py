@@ -9,6 +9,25 @@ from typing import Any
 import yaml
 
 
+class _PermissiveLoader(yaml.SafeLoader):
+    """SafeLoader that ignores unknown Python tags.
+
+    MkDocs extensions like pymdownx.slugs use Python-specific YAML tags
+    like !python/object/apply which SafeLoader rejects. This loader
+    treats them as raw strings to allow parsing the rest of the config.
+    """
+
+
+def _ignore_unknown(loader: yaml.Loader, tag_suffix: str, node: yaml.Node) -> str:
+    """Constructor that returns the raw tag as a placeholder string."""
+    return f"<{node.tag}>"
+
+
+# Register handler for all Python tags (both full and shorthand forms)
+_PermissiveLoader.add_multi_constructor("tag:yaml.org,2002:python/", _ignore_unknown)
+_PermissiveLoader.add_multi_constructor("!python/", _ignore_unknown)
+
+
 @dataclass
 class Config:
     """Resolved configuration for llmstxt generation."""
@@ -61,7 +80,7 @@ def load_config(config_path: Path) -> Config:
         raise FileNotFoundError(f"Config file not found: {config_path}")
 
     with open(config_path, encoding="utf-8") as f:
-        raw = yaml.load(f, Loader=yaml.SafeLoader)
+        raw = yaml.load(f, Loader=_PermissiveLoader)
 
     site_name = raw.get("site_name", "Documentation")
     site_description = raw.get("site_description", "")
@@ -128,7 +147,8 @@ def _get_llmstxt_config(raw: dict[str, Any]) -> dict[str, Any] | None:
     # List form: plugins is a list of strings or dicts
     for plugin in plugins:
         if isinstance(plugin, dict) and "llmstxt" in plugin:
-            return plugin["llmstxt"]
+            config = plugin["llmstxt"]
+            return config if isinstance(config, dict) else {}
         if plugin == "llmstxt":
             return {}
     return None

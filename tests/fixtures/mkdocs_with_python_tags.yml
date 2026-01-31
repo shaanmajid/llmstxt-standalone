@@ -1,0 +1,21 @@
+site_name: Test Site with Python Tags
+site_description: A test site using Python YAML tags
+site_url: https://test.com/
+
+nav:
+  - Home: index.md
+
+markdown_extensions:
+  - pymdownx.slugify:
+      slugify: !python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+
+plugins:
+  - search
+  - llmstxt:
+      markdown_description: |
+        Custom description for LLMs.
+      sections:
+        Getting Started:
+          - index.md

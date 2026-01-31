@@ -94,3 +94,17 @@ def test_load_config_empty_llmstxt_plugin():
     assert config.full_output == "llms-full.txt"
     # Empty sections (not nav-derived) since no sections specified
     assert config.sections == {}
+
+
+def test_load_config_with_python_yaml_tags():
+    """Test that configs with Python YAML tags (e.g., !python/object/apply) are parsed.
+
+    MkDocs extensions like pymdownx.slugs use Python-specific YAML tags.
+    SafeLoader rejects these, but we should handle them gracefully.
+    """
+    config = load_config(FIXTURES / "mkdocs_with_python_tags.yml")
+
+    assert config.site_name == "Test Site with Python Tags"
+    assert config.site_description == "A test site using Python YAML tags"
+    assert "Custom description" in config.markdown_description
+    assert "Getting Started" in config.sections
