@@ -9,7 +9,7 @@ import typer
 
 from llmstxt_standalone import __version__
 from llmstxt_standalone.config import load_config
-from llmstxt_standalone.generate import generate_llms_txt
+from llmstxt_standalone.generate import build_llms_output, write_markdown_files
 
 app = typer.Typer(
     help="Generate llms.txt from built HTML documentation.",
@@ -75,9 +75,9 @@ def main(
     if quiet:
         verbose = False
 
-    def log(msg: str, color: str = "green") -> None:
+    def log(msg: str, color: str = "green", err: bool = False) -> None:
         if not quiet:
-            typer.secho(msg, fg=color)
+            typer.secho(msg, fg=color, err=err)
 
     # Validate inputs
     if not config.exists():
@@ -100,20 +100,22 @@ def main(
         typer.secho(f"Error loading config: {e}", fg="red", err=True)
         raise typer.Exit(1) from None
 
-    if verbose and not quiet:
+    if verbose:
         typer.echo(f"Site: {cfg.site_name}")
         typer.echo(f"Sections: {list(cfg.sections.keys())}")
         if dry_run:
             typer.echo("Dry run - no files will be written")
 
     # Generate content
-    result = generate_llms_txt(
+    build = build_llms_output(
         config=cfg,
         site_dir=site_dir,
+    )
+    markdown_files = write_markdown_files(
+        build.pages,
         output_dir=out_dir,
-        verbose=verbose,
+        use_directory_urls=cfg.use_directory_urls,
         dry_run=dry_run,
-        warn_on_empty=not quiet,
     )
 
     # Define output paths
@@ -128,12 +130,22 @@ def main(
         action = "Generated"
         color = "green"
         out_dir.mkdir(parents=True, exist_ok=True)
-        llms_path.write_text(result.llms_txt, encoding="utf-8")
-        full_path.write_text(result.llms_full_txt, encoding="utf-8")
+        llms_path.write_text(build.llms_txt, encoding="utf-8")
+        full_path.write_text(build.llms_full_txt, encoding="utf-8")
 
-    log(f"{action} {llms_path} ({len(result.llms_txt):,} bytes)", color)
-    log(f"{action} {full_path} ({len(result.llms_full_txt):,} bytes)", color)
-    log(f"{action} {len(result.markdown_files)} markdown files", color)
+    log(f"{action} {llms_path} ({len(build.llms_txt):,} bytes)", color)
+    log(f"{action} {full_path} ({len(build.llms_full_txt):,} bytes)", color)
+    log(f"{action} {len(markdown_files)} markdown files", color)
+
+    if verbose and build.skipped:
+        log("Skipped files:", color="yellow", err=True)
+        for path, reason in build.skipped:
+            log(f"- {path} ({reason})", color="yellow", err=True)
+
+    if build.warnings:
+        log("Warnings:", color="yellow", err=True)
+        for warning in build.warnings:
+            log(f"- {warning}", color="yellow", err=True)
 
 
 if __name__ == "__main__":

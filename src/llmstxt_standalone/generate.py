@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import warnings
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -94,38 +93,48 @@ def md_path_to_output_md_path(
 
 
 @dataclass
+class PageMarkdown:
+    """Per-page markdown output."""
+
+    md_path: str
+    content: str
+
+
+@dataclass
+class BuildResult:
+    """Result of building llms.txt content (no files written)."""
+
+    llms_txt: str
+    llms_full_txt: str
+    pages: list[PageMarkdown]
+    skipped: list[tuple[Path, str]]
+    warnings: list[str]
+
+
+@dataclass
 class GenerateResult:
-    """Result of llms.txt generation."""
+    """Result of llms.txt generation with files written."""
 
     llms_txt: str
     llms_full_txt: str
     markdown_files: list[Path]
+    skipped: list[tuple[Path, str]]
+    warnings: list[str]
 
 
-def generate_llms_txt(
+def build_llms_output(
     config: Config,
     site_dir: Path,
-    output_dir: Path | None = None,
-    verbose: bool = False,
-    dry_run: bool = False,
-    warn_on_empty: bool = True,
-) -> GenerateResult:
-    """Generate llms.txt, llms-full.txt, and per-page markdown files.
+) -> BuildResult:
+    """Build llms.txt, llms-full.txt, and per-page markdown content.
 
     Args:
         config: Resolved configuration.
         site_dir: Path to built HTML site directory.
-        output_dir: Path to write output files. Defaults to site_dir.
-        verbose: Whether to print progress.
-        dry_run: If True, don't write markdown files.
-        warn_on_empty: If True, emit a warning when extraction yields empty output.
 
     Returns:
-        GenerateResult with content and list of markdown files (written or would-be).
+        BuildResult with content and per-page markdown data.
     """
-    if output_dir is None:
-        output_dir = site_dir
-
     # Build llms.txt (index)
     llms_lines = [f"# {config.site_name}", ""]
 
@@ -145,26 +154,26 @@ def generate_llms_txt(
         full_lines.append("")
 
     # Process sections - check HTML existence and extract titles first
-    markdown_files: list[Path] = []
+    page_outputs: list[PageMarkdown] = []
+    skipped: list[tuple[Path, str]] = []
+    warnings: list[str] = []
 
-    for section_name, pages in config.sections.items():
+    for section_name, section_pages in config.sections.items():
         section_entries: list[str] = []
 
-        for md_path in pages:
+        for md_path in section_pages:
             html_path = md_path_to_html_path(
                 site_dir, md_path, config.use_directory_urls
             )
 
             if not html_path.exists():
-                if verbose:
-                    print(f"Warning: {html_path} not found, skipping")
+                skipped.append((html_path, "HTML file not found"))
                 continue
 
             try:
                 html = html_path.read_text(encoding="utf-8")
             except UnicodeDecodeError:
-                if verbose:
-                    print(f"Warning: {html_path} has encoding errors, skipping")
+                skipped.append((html_path, "HTML file has encoding errors"))
                 continue
 
             # Extract title from HTML, fall back to config title
@@ -189,21 +198,13 @@ def generate_llms_txt(
                 full_lines.append("")
                 full_lines.append(content)
                 full_lines.append("")
-            elif warn_on_empty:
-                warnings.warn(
-                    f"No markdown content extracted from {html_path}; writing empty file",
-                    RuntimeWarning,
-                    stacklevel=2,
+            else:
+                warning = (
+                    f"No markdown content extracted from {html_path}; content empty"
                 )
+                warnings.append(warning)
 
-            # Write individual markdown file (skip in dry-run mode)
-            output_md_path = md_path_to_output_md_path(
-                output_dir, md_path, config.use_directory_urls
-            )
-            if not dry_run:
-                output_md_path.parent.mkdir(parents=True, exist_ok=True)
-                output_md_path.write_text(content, encoding="utf-8")
-            markdown_files.append(output_md_path)
+            page_outputs.append(PageMarkdown(md_path=md_path, content=content))
 
         # Only add section to llms.txt if it has entries
         if section_entries:
@@ -215,8 +216,74 @@ def generate_llms_txt(
     llms_txt = "\n".join(llms_lines)
     llms_full_txt = "\n".join(full_lines)
 
-    return GenerateResult(
+    return BuildResult(
         llms_txt=llms_txt,
         llms_full_txt=llms_full_txt,
+        pages=page_outputs,
+        skipped=skipped,
+        warnings=warnings,
+    )
+
+
+def write_markdown_files(
+    pages: list[PageMarkdown],
+    output_dir: Path,
+    use_directory_urls: bool,
+    dry_run: bool = False,
+) -> list[Path]:
+    """Write per-page markdown files to disk.
+
+    Args:
+        pages: Per-page markdown content.
+        output_dir: Path to write output files.
+        use_directory_urls: If True, outputs to foo/index.md; if False, outputs to foo.md.
+        dry_run: If True, don't write markdown files.
+
+    Returns:
+        List of output markdown paths (written or would-be).
+    """
+    markdown_files: list[Path] = []
+    for page in pages:
+        output_md_path = md_path_to_output_md_path(
+            output_dir, page.md_path, use_directory_urls
+        )
+        if not dry_run:
+            output_md_path.parent.mkdir(parents=True, exist_ok=True)
+            output_md_path.write_text(page.content, encoding="utf-8")
+        markdown_files.append(output_md_path)
+    return markdown_files
+
+
+def generate_llms_txt(
+    config: Config,
+    site_dir: Path,
+    output_dir: Path | None = None,
+    dry_run: bool = False,
+) -> GenerateResult:
+    """Generate llms.txt, llms-full.txt, and per-page markdown files.
+
+    Args:
+        config: Resolved configuration.
+        site_dir: Path to built HTML site directory.
+        output_dir: Path to write output files. Defaults to site_dir.
+        dry_run: If True, don't write markdown files.
+    Returns:
+        GenerateResult with content and list of markdown files (written or would-be).
+    """
+    build = build_llms_output(config=config, site_dir=site_dir)
+    if output_dir is None:
+        output_dir = site_dir
+    markdown_files = write_markdown_files(
+        build.pages,
+        output_dir=output_dir,
+        use_directory_urls=config.use_directory_urls,
+        dry_run=dry_run,
+    )
+
+    return GenerateResult(
+        llms_txt=build.llms_txt,
+        llms_full_txt=build.llms_full_txt,
         markdown_files=markdown_files,
+        skipped=build.skipped,
+        warnings=build.warnings,
     )

@@ -1,5 +1,7 @@
 """Tests for HTML to Markdown conversion."""
 
+import pytest
+
 from llmstxt_standalone.convert import extract_title_from_html, html_to_markdown
 
 
@@ -70,27 +72,58 @@ def test_html_to_markdown_default_mkdocs_theme():
     assert "Footer" not in result
 
 
-def test_extract_title_from_html_uses_title_tag():
-    """Test that title is extracted from <title> tag."""
-    html = """
-    <html>
-    <head><title>Page Title</title></head>
-    <body><h1>Different H1</h1></body>
-    </html>
-    """
-    assert extract_title_from_html(html) == "Page Title"
-
-
-def test_extract_title_from_html_strips_site_suffix():
-    """Test that site name suffix is stripped from title."""
-    html = """
-    <html>
-    <head><title>Page Title - My Site</title></head>
-    <body></body>
-    </html>
-    """
-    # Should return just the page title, not "Page Title - My Site"
-    assert extract_title_from_html(html, site_name="My Site") == "Page Title"
+@pytest.mark.parametrize(
+    ("html", "expected", "site_name"),
+    [
+        (
+            """
+            <html>
+            <head><title>Page Title</title></head>
+            <body><h1>Different H1</h1></body>
+            </html>
+            """,
+            "Page Title",
+            None,
+        ),
+        (
+            """
+            <html>
+            <head><title>Page Title - My Site</title></head>
+            <body></body>
+            </html>
+            """,
+            "Page Title",
+            "My Site",
+        ),
+        (
+            "<html><head><title>API - Authentication - My Site</title></head></html>",
+            "API - Authentication",
+            "My Site",
+        ),
+        (
+            "<html><head><title>API - Authentication</title></head></html>",
+            "API - Authentication",
+            "My Site",
+        ),
+        (
+            """<html><head><title>
+                Page Title
+            </title></head></html>""",
+            "Page Title",
+            None,
+        ),
+        (
+            "<html><head><title>AT&amp;T &amp; Verizon</title></head></html>",
+            "AT&T & Verizon",
+            None,
+        ),
+    ],
+)
+def test_extract_title_from_html_title_tag_cases(
+    html: str, expected: str, site_name: str | None
+):
+    """Test title extraction from <title> tag across common patterns."""
+    assert extract_title_from_html(html, site_name=site_name) == expected
 
 
 def test_extract_title_from_html_fallback_to_h1():
@@ -109,34 +142,7 @@ def test_extract_title_from_html_returns_none_when_no_title():
     assert extract_title_from_html(html) is None
 
 
-def test_extract_title_from_html_multiple_dashes():
-    """Test that only the last dash-separated segment is stripped."""
-    html = "<html><head><title>API - Authentication - My Site</title></head></html>"
-    # Should preserve "API - Authentication", only strip " - My Site"
-    assert extract_title_from_html(html, site_name="My Site") == "API - Authentication"
-
-
-def test_extract_title_from_html_does_not_strip_dash_in_title():
-    """Test that titles with dashes are preserved when no site suffix is present."""
-    html = "<html><head><title>API - Authentication</title></head></html>"
-    assert extract_title_from_html(html) == "API - Authentication"
-
-
-def test_extract_title_from_html_multiline_title():
-    """Test title extraction when title spans multiple lines."""
-    html = """<html><head><title>
-        Page Title
-    </title></head></html>"""
-    assert extract_title_from_html(html) == "Page Title"
-
-
 def test_extract_title_from_html_empty_h1():
     """Test that whitespace-only H1 returns None, not empty string."""
     html = "<html><body><h1>   </h1></body></html>"
     assert extract_title_from_html(html) is None
-
-
-def test_extract_title_from_html_entities():
-    """Test that HTML entities are decoded properly."""
-    html = "<html><head><title>AT&amp;T &amp; Verizon</title></head></html>"
-    assert extract_title_from_html(html) == "AT&T & Verizon"

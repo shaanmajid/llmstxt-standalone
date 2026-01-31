@@ -3,8 +3,6 @@
 import shutil
 from pathlib import Path
 
-import pytest
-
 from llmstxt_standalone.config import load_config
 from llmstxt_standalone.generate import (
     generate_llms_txt,
@@ -207,13 +205,12 @@ def test_generate_llms_txt_empty_content_warns_and_writes(tmp_path: Path):
     config = load_config(FIXTURES / "mkdocs_with_llmstxt.yml")
     config.content_selector = ".does-not-exist"
 
-    with pytest.warns(RuntimeWarning) as record:
-        result = generate_llms_txt(
-            config=config,
-            site_dir=site_dir,
-        )
+    result = generate_llms_txt(
+        config=config,
+        site_dir=site_dir,
+    )
 
-    assert len(record) >= 1
+    assert len(result.warnings) >= 1
     assert "/index.md" in result.llms_txt
     assert len(result.markdown_files) > 0
     for md_file in result.markdown_files:
