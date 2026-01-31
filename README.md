@@ -1,6 +1,11 @@
 # llmstxt-standalone
 
+[![CI](https://github.com/shaanmajid/llmstxt-standalone/actions/workflows/ci.yml/badge.svg)](https://github.com/shaanmajid/llmstxt-standalone/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/llmstxt-standalone)](https://pypi.org/project/llmstxt-standalone/)
+[![Python](https://img.shields.io/pypi/pyversions/llmstxt-standalone)](https://pypi.org/project/llmstxt-standalone/)
+[![License](https://img.shields.io/pypi/l/llmstxt-standalone)](https://github.com/shaanmajid/llmstxt-standalone/blob/main/LICENSE)
 [![codecov](https://codecov.io/gh/shaanmajid/llmstxt-standalone/graph/badge.svg)](https://codecov.io/gh/shaanmajid/llmstxt-standalone)
+[![prek](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/j178/prek/master/docs/assets/badge-v0.json)](https://github.com/j178/prek)
 
 Generate `/llms.txt`, `/llms-full.txt`, and per-page markdown files from built HTML documentation, following the [llms.txt spec](https://llmstxt.org/).
 
