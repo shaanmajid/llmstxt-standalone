@@ -125,8 +125,17 @@ def html_to_markdown(html: str, content_selector: str | None = None) -> str:
 
     # Find main content
     if content_selector:
-        content = soup.select_one(content_selector)
+        try:
+            content = soup.select_one(content_selector)
+        except Exception:
+            content = None
+        else:
+            if content is None:
+                return ""
     else:
+        content = None
+
+    if content is None:
         content = (
             soup.select_one(".md-content__inner")  # Material for MkDocs
             or soup.select_one('[role="main"]')  # Default MkDocs theme
