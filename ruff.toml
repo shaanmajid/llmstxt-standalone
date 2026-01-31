@@ -11,7 +11,14 @@ select = [
   "C4",   # flake8-comprehensions
   "PIE",  # flake8-pie
   "PERF", # perflint
+  "D",    # pydocstyle
 ]
 ignore = [
   "E501", # line length handled by formatter
 ]
+
+[lint.pydocstyle]
+convention = "google"
+
+[lint.per-file-ignores]
+"tests/**" = ["D"]
