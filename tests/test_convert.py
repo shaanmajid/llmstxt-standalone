@@ -85,6 +85,7 @@ def test_html_to_markdown_default_mkdocs_theme():
             "Page Title",
             None,
         ),
+        # " - " separator (common pattern)
         (
             """
             <html>
@@ -103,6 +104,22 @@ def test_html_to_markdown_default_mkdocs_theme():
         (
             "<html><head><title>API - Authentication</title></head></html>",
             "API - Authentication",
+            "My Site",
+        ),
+        # " | " separator (Material for MkDocs default)
+        (
+            "<html><head><title>Installation | uv</title></head></html>",
+            "Installation",
+            "uv",
+        ),
+        (
+            "<html><head><title>API - Authentication | My Site</title></head></html>",
+            "API - Authentication",
+            "My Site",
+        ),
+        (
+            "<html><head><title>Page | Other Site</title></head></html>",
+            "Page | Other Site",  # Should NOT strip when site_name doesn't match
             "My Site",
         ),
         (
