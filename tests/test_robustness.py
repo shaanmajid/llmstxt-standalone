@@ -9,6 +9,7 @@ import pytest
 from llmstxt_standalone.config import load_config
 from llmstxt_standalone.convert import html_to_markdown
 from llmstxt_standalone.generate import (
+    _escape_markdown_link_text,
     generate_llms_txt,
     md_path_to_html_path,
     md_path_to_output_md_path,
@@ -181,3 +182,37 @@ class TestIOErrorHandling:
         assert len(result.warnings) > 0
         # Links should still be generated (even if full content is missing)
         assert "index.md" in result.llms_txt
+
+
+# =============================================================================
+# Markdown Link Text Escaping Tests
+# =============================================================================
+
+
+class TestMarkdownLinkTextEscaping:
+    """Tests that markdown link text is properly escaped."""
+
+    def test_escapes_brackets(self):
+        """Brackets in link text should be escaped."""
+        assert _escape_markdown_link_text("foo [bar] baz") == r"foo \[bar\] baz"
+
+    def test_escapes_backslashes(self):
+        """Backslashes should be escaped to prevent unintended escape sequences."""
+        # A title like "foo\bar" should become "foo\\bar"
+        assert _escape_markdown_link_text(r"foo\bar") == r"foo\\bar"
+
+    def test_escapes_backslash_before_bracket(self):
+        """Backslash before bracket should be escaped to prevent breaking the link."""
+        # A title like "foo\]bar" would break link syntax if not escaped
+        assert _escape_markdown_link_text(r"foo\]bar") == r"foo\\\]bar"
+
+    def test_replaces_newlines_with_spaces(self):
+        """Newlines in link text should be replaced with spaces."""
+        assert _escape_markdown_link_text("foo\nbar") == "foo bar"
+        assert _escape_markdown_link_text("foo\r\nbar") == "foo bar"
+        assert _escape_markdown_link_text("foo\rbar") == "foo bar"
+
+    def test_handles_combined_special_chars(self):
+        """Multiple special characters should all be handled."""
+        result = _escape_markdown_link_text("Title [v1.0]\nWith\\Path")
+        assert result == r"Title \[v1.0\] With\\Path"
