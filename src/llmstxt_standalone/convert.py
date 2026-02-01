@@ -92,11 +92,15 @@ def extract_title_from_html(html: str, site_name: str | None = None) -> str | No
     title_tag = soup.find("title")
     if title_tag:
         title = title_tag.get_text().strip()
-        # Strip site name suffix only when it matches the configured site name.
-        if site_name and " - " in title:
-            base, suffix = title.rsplit(" - ", 1)
-            if suffix.strip().casefold() == site_name.strip().casefold():
-                title = base.strip()
+        # Strip site name suffix when it matches the configured site name.
+        # Handles both " - " (common) and " | " (Material for MkDocs) separators.
+        if site_name:
+            for sep in (" | ", " - "):
+                if sep in title:
+                    base, suffix = title.rsplit(sep, 1)
+                    if suffix.strip().casefold() == site_name.strip().casefold():
+                        title = base.strip()
+                        break
         if title:
             return title
 
