@@ -219,10 +219,12 @@ def build_llms_output(
                 skipped.append((html_path, f"Failed to read HTML file: {exc}"))
                 continue
 
-            # Extract title from HTML, fall back to config title
-            title = extract_title_from_html(
-                html, site_name=config.site_name
-            ) or config.get_page_title(md_path)
+            # Prefer nav title (mkdocs-llmstxt compat), fall back to HTML, then filename
+            title = (
+                config.get_nav_title(md_path)
+                or extract_title_from_html(html, site_name=config.site_name)
+                or config.get_filename_title(md_path)
+            )
 
             page_url = md_path_to_page_url(
                 config.site_url,

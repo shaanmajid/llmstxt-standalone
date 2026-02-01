@@ -20,13 +20,20 @@ class Config:
     nav: list[Any]
     use_directory_urls: bool = True
 
-    def get_page_title(self, md_path: str) -> str:
-        """Find the title for a page from the nav structure."""
-        title = self._search_nav(self.nav, md_path)
-        if title:
-            return title
-        # Fallback: derive from filename
+    def get_nav_title(self, md_path: str) -> str | None:
+        """Find the title for a page from the nav structure only.
+
+        Returns None if the page is not found in nav or has no explicit title.
+        """
+        return self._search_nav(self.nav, md_path)
+
+    def get_filename_title(self, md_path: str) -> str:
+        """Derive title from filename path."""
         return md_path.replace(".md", "").replace("-", " ").replace("/", " - ").title()
+
+    def get_page_title(self, md_path: str) -> str:
+        """Find the title for a page from the nav structure with fallback."""
+        return self.get_nav_title(md_path) or self.get_filename_title(md_path)
 
     def _search_nav(self, items: list[Any], md_path: str) -> str | None:
         """Recursively search nav for a page title."""

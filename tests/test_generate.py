@@ -257,8 +257,8 @@ def test_generate_llms_txt_unicode_and_special_chars(tmp_path: Path):
         assert len(content) > 0
 
 
-def test_generate_llms_txt_uses_html_titles(tmp_path: Path):
-    """Test that page titles are extracted from HTML <title> tags, not nav paths."""
+def test_generate_llms_txt_uses_nav_titles(tmp_path: Path):
+    """Test that page titles come from nav structure."""
 
     # Copy fixture site to temp directory
     site_dir = tmp_path / "site"
@@ -271,9 +271,7 @@ def test_generate_llms_txt_uses_html_titles(tmp_path: Path):
         site_dir=site_dir,
     )
 
-    # Titles should come from HTML <title> tags, not nav paths
-    # The fixture site/index.html has <title>Home</title>
-    # The fixture site/install/index.html has <title>Install</title>
+    # Titles should come from nav structure: "Home: index.md" and "Install: install.md"
     assert "[Home](" in result.llms_txt
     assert "[Install](" in result.llms_txt
 
@@ -304,38 +302,105 @@ def test_generate_llms_txt_skips_missing_pages(tmp_path: Path):
     assert "[Home](" in result.llms_txt
 
 
-def test_generate_llms_txt_html_title_overrides_nav(tmp_path: Path):
-    """Test that HTML <title> overrides nav-derived title when they differ."""
+def test_generate_llms_txt_nav_title_overrides_html(tmp_path: Path):
+    """Test that nav title is preferred over HTML <title> when both exist."""
 
     # Copy fixture site to temp directory
     site_dir = tmp_path / "site"
     shutil.copytree(FIXTURES / "site", site_dir)
 
-    # Create an HTML file with a different title than nav would suggest
-    deep_dir = site_dir / "deep" / "nested"
-    deep_dir.mkdir(parents=True, exist_ok=True)
-    (deep_dir / "index.html").write_text(
+    # Create an HTML file with a DIFFERENT title than nav
+    docker_dir = site_dir / "guides" / "docker"
+    docker_dir.mkdir(parents=True, exist_ok=True)
+    (docker_dir / "index.html").write_text(
         """<!DOCTYPE html>
         <html>
-        <head><title>Authentication</title></head>
-        <body><article><h1>Authentication</h1><p>Content</p></article></body>
+        <head><title>Using uv in Docker</title></head>
+        <body><article><h1>Using uv in Docker</h1><p>Content</p></article></body>
         </html>
         """,
         encoding="utf-8",
     )
 
     config = load_config(FIXTURES / "mkdocs_with_llmstxt.yml")
-    # Add the deep nested page - nav would derive "Deep - Nested - Index"
-    config.sections["Getting Started"].append("deep/nested/index.md")
+    # Add to nav with a SHORT title (like mkdocs-llmstxt would have)
+    config.nav.append({"Docker": "guides/docker/index.md"})
+    config.sections["Getting Started"].append("guides/docker/index.md")
 
     result = generate_llms_txt(
         config=config,
         site_dir=site_dir,
     )
 
-    # Should use HTML title "Authentication", not nav-derived "Deep - Nested - Index"
-    assert "[Authentication](" in result.llms_txt
-    assert "Deep - Nested" not in result.llms_txt
+    # Should use nav title "Docker", NOT HTML title "Using uv in Docker"
+    assert "[Docker](" in result.llms_txt
+    assert "Using uv in Docker" not in result.llms_txt
+
+
+def test_generate_llms_txt_html_title_fallback(tmp_path: Path):
+    """Test that HTML <title> is used when page has no nav title."""
+
+    # Copy fixture site to temp directory
+    site_dir = tmp_path / "site"
+    shutil.copytree(FIXTURES / "site", site_dir)
+
+    # Create an HTML file NOT in nav
+    extra_dir = site_dir / "extra"
+    extra_dir.mkdir(parents=True, exist_ok=True)
+    (extra_dir / "index.html").write_text(
+        """<!DOCTYPE html>
+        <html>
+        <head><title>Extra Page Title</title></head>
+        <body><article><h1>Extra Page</h1><p>Content</p></article></body>
+        </html>
+        """,
+        encoding="utf-8",
+    )
+
+    config = load_config(FIXTURES / "mkdocs_with_llmstxt.yml")
+    # Add to sections but NOT to nav - no nav title available
+    config.sections["Getting Started"].append("extra/index.md")
+
+    result = generate_llms_txt(
+        config=config,
+        site_dir=site_dir,
+    )
+
+    # Should use HTML title since not in nav
+    assert "[Extra Page Title](" in result.llms_txt
+
+
+def test_generate_llms_txt_filename_fallback(tmp_path: Path):
+    """Test that filename-derived title is used when no nav or HTML title exists."""
+
+    # Copy fixture site to temp directory
+    site_dir = tmp_path / "site"
+    shutil.copytree(FIXTURES / "site", site_dir)
+
+    # Create an HTML file with NO title (neither <title> nor <h1>)
+    bare_dir = site_dir / "bare-page"
+    bare_dir.mkdir(parents=True, exist_ok=True)
+    (bare_dir / "index.html").write_text(
+        """<!DOCTYPE html>
+        <html>
+        <head></head>
+        <body><article><p>Content only, no title</p></article></body>
+        </html>
+        """,
+        encoding="utf-8",
+    )
+
+    config = load_config(FIXTURES / "mkdocs_with_llmstxt.yml")
+    # Add to sections but NOT to nav - no nav title, no HTML title
+    config.sections["Getting Started"].append("bare-page/index.md")
+
+    result = generate_llms_txt(
+        config=config,
+        site_dir=site_dir,
+    )
+
+    # Should use filename-derived title: "bare-page/index.md" -> "Bare Page - Index"
+    assert "[Bare Page - Index](" in result.llms_txt
 
 
 def test_generate_llms_txt_escapes_brackets_in_titles(tmp_path: Path):
