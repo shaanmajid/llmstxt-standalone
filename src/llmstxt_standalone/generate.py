@@ -16,9 +16,16 @@ def _escape_markdown_link_text(text: str) -> str:
         text: The link text to escape.
 
     Returns:
-        Text with [ and ] escaped as \[ and \].
+        Text with backslashes, brackets escaped and newlines replaced with spaces.
     """
-    return text.replace("[", r"\[").replace("]", r"\]")
+    return (
+        text.replace("\\", "\\\\")
+        .replace("[", r"\[")
+        .replace("]", r"\]")
+        .replace("\r\n", " ")
+        .replace("\n", " ")
+        .replace("\r", " ")
+    )
 
 
 def _is_index_md(md_path: str) -> bool:
