@@ -116,3 +116,27 @@ def test_load_config_with_python_yaml_tags():
     assert config.site_description == "A test site using Python YAML tags"
     assert "Custom description" in config.markdown_description
     assert "Getting Started" in config.sections
+
+
+def test_get_nav_title_section_index_page():
+    """Test that bare string index pages inherit their section title.
+
+    MkDocs nav allows section index pages as bare strings:
+      - Authentication:
+          - concepts/auth/index.md  # Should get title "Authentication"
+          - concepts/auth/intro.md  # Also inherits "Authentication"
+          - The CLI: concepts/auth/cli.md
+
+    All bare strings in a section inherit the section title.
+    """
+    config = load_config(FIXTURES / "mkdocs_section_index.yml")
+
+    # Bare string pages should inherit section title
+    assert config.get_nav_title("concepts/auth/index.md") == "Authentication"
+    assert config.get_nav_title("concepts/auth/intro.md") == "Authentication"
+    # Explicit titles still work
+    assert config.get_nav_title("concepts/auth/cli.md") == "The CLI"
+    assert config.get_nav_title("concepts/auth/http.md") == "HTTP"
+    # Regular titled entries work
+    assert config.get_nav_title("index.md") == "Home"
+    assert config.get_nav_title("install.md") == "Install"

@@ -1,0 +1,16 @@
+site_name: Test Site
+site_description: A test site with section index pages
+site_url: https://test.com/
+
+nav:
+  - Home: index.md
+  - Authentication:
+      - concepts/auth/index.md
+      - concepts/auth/intro.md
+      - The CLI: concepts/auth/cli.md
+      - HTTP: concepts/auth/http.md
+  - Guide:
+      - Install: install.md
+
+plugins:
+  - search
