@@ -101,6 +101,17 @@ def main(
         typer.secho(f"Error loading config: {e}", fg="red", err=True)
         raise typer.Exit(1) from None
 
+    # Validate sections
+    if not cfg.sections:
+        typer.secho("Error: No sections configured.", fg="red", err=True)
+        typer.secho(
+            "Add a 'nav' to your mkdocs.yml, or configure 'sections' "
+            "in the llmstxt plugin.",
+            fg="yellow",
+            err=True,
+        )
+        raise typer.Exit(1)
+
     if verbose:
         typer.echo(f"Site: {cfg.site_name}")
         typer.echo(f"Sections: {list(cfg.sections.keys())}")

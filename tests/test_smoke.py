@@ -112,6 +112,31 @@ def test_smoke_cli_version() -> None:
     assert "llmstxt-standalone" in result.stdout
 
 
+def test_smoke_cli_errors_on_empty_sections(site_copy: Path) -> None:
+    """Test CLI errors when no sections are configured."""
+    site_dir = site_copy / "site"
+    config_path = FIXTURES / "mkdocs_no_nav.yml"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "llmstxt_standalone.cli",
+            "--config",
+            str(config_path),
+            "--site-dir",
+            str(site_dir),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert result.returncode == 1, "CLI should exit with error when no sections"
+    assert "No sections configured" in result.stderr
+    assert "nav" in result.stderr.lower(), "Error should mention nav"
+
+
 def test_smoke_output_content_structure(site_copy: Path) -> None:
     """Verify the output files have proper markdown structure."""
     site_dir = site_copy / "site"
