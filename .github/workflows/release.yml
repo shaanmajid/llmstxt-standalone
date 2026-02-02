@@ -115,12 +115,19 @@ jobs:
     needs: [build, publish]
     permissions:
       contents: write # Required to create releases
+      id-token: write # Required for OIDC
+      attestations: write # Required for artifact attestations
     steps:
       - name: Download distribution artifacts
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: dist
           path: dist/
+
+      - name: Generate artifact attestations
+        uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0
+        with:
+          subject-path: dist/*
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
