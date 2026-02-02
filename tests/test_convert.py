@@ -146,3 +146,47 @@ def test_extract_title_from_html_empty_h1():
     """Test that whitespace-only H1 returns None, not empty string."""
     html = "<html><body><h1>   </h1></body></html>"
     assert extract_title_from_html(html) is None
+
+
+def test_html_to_markdown_code_with_html_content():
+    """Test that code containing HTML-like content is preserved literally.
+
+    Regression test: code blocks extracted from highlighttable were re-parsed
+    as HTML, causing angle brackets and HTML tags in code to be corrupted.
+    """
+    # Code containing </pre> tag that should be preserved literally
+    html = """
+    <article>
+        <table class="highlighttable">
+            <tr>
+                <td class="linenos"><pre>1</pre></td>
+                <td class="code"><pre><code class="language-html">&lt;script&gt;alert("xss")&lt;/script&gt;</code></pre></td>
+            </tr>
+        </table>
+    </article>
+    """
+    result = html_to_markdown(html)
+    assert "<script>" in result
+    assert "</script>" in result
+    assert 'alert("xss")' in result
+
+
+def test_html_to_markdown_code_with_pre_closing_tag():
+    """Test that code containing </pre> is preserved literally.
+
+    Regression test: if code contains </pre>, re-parsing it as HTML would
+    prematurely close the pre tag and corrupt the output.
+    """
+    html = """
+    <article>
+        <table class="highlighttable">
+            <tr>
+                <td class="linenos"><pre>1</pre></td>
+                <td class="code"><pre><code>print("&lt;/pre&gt; breaks things")</code></pre></td>
+            </tr>
+        </table>
+    </article>
+    """
+    result = html_to_markdown(html)
+    assert "</pre>" in result
+    assert "breaks things" in result

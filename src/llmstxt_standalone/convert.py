@@ -34,9 +34,15 @@ def _autoclean(soup: BeautifulSoup | Tag) -> None:
     for element in soup.find_all("table", attrs={"class": "highlighttable"}):
         code = element.find("code")
         if code:
-            element.replace_with(
-                BeautifulSoup(f"<pre>{code.get_text()}</pre>", "html.parser")
+            # Find the root BeautifulSoup document to create new tags
+            # (soup parameter may be a Tag, which doesn't have new_tag)
+            doc = next(
+                (p for p in element.parents if isinstance(p, BeautifulSoup)), None
             )
+            if doc:
+                pre_tag = doc.new_tag("pre")
+                pre_tag.string = code.get_text()
+                element.replace_with(pre_tag)
 
 
 def _get_language(tag: Tag) -> str:
