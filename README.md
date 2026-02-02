@@ -138,7 +138,10 @@ print(result.markdown_files) # List of written .md paths
 
 ## Compatibility
 
-The tool produces output identical to mkdocs-llmstxt when configured the same way. It handles Unicode, international characters, and special characters. It works with Material for MkDocs, ReadTheDocs, and the default MkDocs theme. It parses configs containing Python YAML tags like `!python/object/apply`.
+- Produces output identical to mkdocs-llmstxt when configured the same way
+- Handles Unicode, international characters, and special characters
+- Works with Material for MkDocs, ReadTheDocs, and the default MkDocs theme
+- Parses configs containing Python YAML tags like `!python/object/apply`
 
 ## License
 
