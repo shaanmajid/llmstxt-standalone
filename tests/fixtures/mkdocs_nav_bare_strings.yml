@@ -1,0 +1,14 @@
+site_name: Test Site
+site_description: A test site with bare string nav entries
+site_url: https://test.com/
+
+nav:
+  - index.md # Bare string at top level (should be in "Pages")
+  - Home: about.md # Dict with string value (should be in "Pages")
+  - changelog.md # Another bare string at top level
+  - Guide:
+      - install.md # Bare string in section
+      - Usage: usage.md # Dict with string value in section
+
+plugins:
+  - search

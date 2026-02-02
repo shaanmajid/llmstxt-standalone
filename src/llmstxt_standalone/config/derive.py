@@ -10,10 +10,13 @@ def nav_to_sections(nav: list[Any]) -> dict[str, list[str]]:
     sections: dict[str, list[str]] = {}
 
     for item in nav:
-        if isinstance(item, dict):
+        if isinstance(item, str):
+            # Bare top-level page: - index.md
+            sections.setdefault("Pages", []).append(item)
+        elif isinstance(item, dict):
             for key, value in item.items():
                 if isinstance(value, str):
-                    # Top-level page, add to "Pages" section
+                    # Top-level page with title: - Home: index.md
                     sections.setdefault("Pages", []).append(value)
                 elif isinstance(value, list):
                     # Section with children

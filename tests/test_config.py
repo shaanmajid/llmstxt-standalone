@@ -140,3 +140,29 @@ def test_get_nav_title_section_index_page():
     # Regular titled entries work
     assert config.get_nav_title("index.md") == "Home"
     assert config.get_nav_title("install.md") == "Install"
+
+
+def test_nav_bare_strings_included_in_sections():
+    """Test that bare string entries at the top level of nav are included in sections.
+
+    MkDocs allows bare strings at the top level of nav:
+      nav:
+        - index.md          # Bare string (should go to "Pages" section)
+        - Home: about.md    # Dict with string value (already works)
+
+    Both forms should be included when deriving sections from nav.
+    """
+    config = load_config(FIXTURES / "mkdocs_nav_bare_strings.yml")
+
+    assert config.site_name == "Test Site"
+    # The "Pages" section should include both bare strings and dict entries
+    assert "Pages" in config.sections
+    # Bare strings should be included
+    assert "index.md" in config.sections["Pages"]
+    assert "changelog.md" in config.sections["Pages"]
+    # Dict with string value should also be included
+    assert "about.md" in config.sections["Pages"]
+    # Guide section should have its pages
+    assert "Guide" in config.sections
+    assert "install.md" in config.sections["Guide"]
+    assert "usage.md" in config.sections["Guide"]
