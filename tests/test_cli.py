@@ -134,3 +134,22 @@ def test_cli_output_dir_separates_output_from_site(tmp_path: Path):
     # (only the original HTML files should be there)
     assert not (tmp_path / "site" / "llms.txt").exists()
     assert not (tmp_path / "site" / "llms-full.txt").exists()
+
+
+def test_cli_no_sections_configured(tmp_path: Path):
+    """Test CLI errors when no sections are configured (no nav, no explicit sections)."""
+    shutil.copytree(FIXTURES / "site", tmp_path / "site")
+
+    result = runner.invoke(
+        app,
+        [
+            "--config",
+            str(FIXTURES / "mkdocs_no_nav.yml"),
+            "--site-dir",
+            str(tmp_path / "site"),
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "No sections configured" in result.output
+    assert "nav" in result.output.lower()
