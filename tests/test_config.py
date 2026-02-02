@@ -188,3 +188,26 @@ def test_load_config_sections_list_raises_error():
     """
     with pytest.raises(ValueError, match="'sections' must be a mapping, got list"):
         load_config(FIXTURES / "mkdocs_sections_list.yml")
+
+
+def test_load_config_sections_value_string_raises_error():
+    """Test that sections values must be lists, not strings.
+
+    Users may misconfigure sections values as strings:
+        sections:
+          Getting Started: index.md  # Wrong! Should be list
+    """
+    with pytest.raises(
+        ValueError,
+        match="'sections\\.Getting Started' must be a list of strings, got str",
+    ):
+        load_config(FIXTURES / "mkdocs_sections_value_string.yml")
+
+
+def test_load_config_sections_value_nonstring_item_raises_error():
+    """Test that section entries must be strings."""
+    with pytest.raises(
+        ValueError,
+        match="'sections\\.Getting Started' entries must be strings, got int",
+    ):
+        load_config(FIXTURES / "mkdocs_sections_value_nonstring_item.yml")

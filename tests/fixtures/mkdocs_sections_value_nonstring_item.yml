@@ -1,0 +1,9 @@
+site_name: Test Site
+site_description: A test site with invalid sections item
+
+plugins:
+  - llmstxt:
+      sections:
+        Getting Started:
+          - index.md
+          - 123

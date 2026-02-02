@@ -78,6 +78,23 @@ def _config_from_mkdocs(raw: dict[str, Any]) -> Config:
             raise ValueError(
                 f"llmstxt 'sections' must be a mapping, got {type(sections).__name__}"
             )
+        for section_name, pages in sections.items():
+            if not isinstance(section_name, str):
+                raise ValueError(
+                    "llmstxt 'sections' keys must be strings, "
+                    f"got {type(section_name).__name__}"
+                )
+            if not isinstance(pages, list):
+                raise ValueError(
+                    f"llmstxt 'sections.{section_name}' must be a list of strings, "
+                    f"got {type(pages).__name__}"
+                )
+            for page in pages:
+                if not isinstance(page, str):
+                    raise ValueError(
+                        f"llmstxt 'sections.{section_name}' entries must be strings, "
+                        f"got {type(page).__name__}"
+                    )
     else:
         markdown_description = ""
         full_output = DEFAULT_FULL_OUTPUT
