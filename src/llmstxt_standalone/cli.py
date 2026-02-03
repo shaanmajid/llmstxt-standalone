@@ -2,15 +2,46 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Annotated
 
 import typer
+import yaml
 from ruamel.yaml import YAML
 
 from llmstxt_standalone import __version__
 from llmstxt_standalone.config import load_config
-from llmstxt_standalone.generate import build_llms_output, write_markdown_files
+from llmstxt_standalone.generate import (
+    build_llms_output,
+    ensure_safe_md_path,
+    write_markdown_files,
+)
+
+
+def _make_logger(
+    quiet: bool, verbose: bool = False
+) -> tuple[Callable[..., None], Callable[..., None]]:
+    """Create log and log_verbose functions for CLI output.
+
+    Args:
+        quiet: If True, suppress all output.
+        verbose: If True, enable verbose logging (quiet overrides this).
+
+    Returns:
+        Tuple of (log, log_verbose) functions.
+    """
+    effective_verbose = verbose and not quiet
+
+    def log(msg: str, color: str = "green", err: bool = False) -> None:
+        if not quiet:
+            typer.secho(msg, fg=color, err=err)
+
+    def log_verbose(msg: str, color: str = "green", err: bool = False) -> None:
+        if effective_verbose:
+            typer.secho(msg, fg=color, err=err)
+
+    return log, log_verbose
 
 
 def version_callback(value: bool) -> None:
@@ -79,22 +110,7 @@ def build(
     """Generate llms.txt and llms-full.txt from built MkDocs site."""
     # Resolve output directory
     out_dir = output_dir or site_dir
-
-    # quiet overrides verbose
-    if quiet:
-        verbose = False
-
-    def log(msg: str, color: str = "green", err: bool = False) -> None:
-        if not quiet:
-            typer.secho(msg, fg=color, err=err)
-
-    def _safe_output_path(name: str) -> Path:
-        path = Path(name)
-        if path.is_absolute() or path.drive:
-            raise ValueError("full_output must be a relative path")
-        if ".." in path.parts:
-            raise ValueError("full_output must not contain '..'")
-        return path
+    log, log_verbose = _make_logger(quiet, verbose)
 
     # Validate inputs
     if not config.exists():
@@ -113,7 +129,7 @@ def build(
     # Load config
     try:
         cfg = load_config(config)
-    except Exception as e:
+    except (FileNotFoundError, ValueError, yaml.YAMLError) as e:
         log(f"Error loading config: {e}", color="red", err=True)
         raise typer.Exit(1) from None
 
@@ -128,11 +144,10 @@ def build(
         )
         raise typer.Exit(1)
 
-    if verbose:
-        typer.echo(f"Site: {cfg.site_name}")
-        typer.echo(f"Sections: {list(cfg.sections.keys())}")
-        if dry_run:
-            typer.echo("Dry run - no files will be written")
+    log_verbose(f"Site: {cfg.site_name}")
+    log_verbose(f"Sections: {list(cfg.sections.keys())}")
+    if dry_run:
+        log_verbose("Dry run - no files will be written")
 
     # Generate content
     llms_build = build_llms_output(
@@ -153,9 +168,13 @@ def build(
     # Define output paths
     llms_path = out_dir / "llms.txt"
     try:
-        full_output_path = _safe_output_path(cfg.full_output)
-    except ValueError as exc:
-        log(f"Error: Invalid full_output: {exc}", color="red", err=True)
+        full_output_path = ensure_safe_md_path(cfg.full_output)
+    except ValueError:
+        log(
+            "Error: Invalid full_output: must be a relative path without '..'",
+            color="red",
+            err=True,
+        )
         raise typer.Exit(1) from None
     full_path = out_dir / full_output_path
 
@@ -178,10 +197,10 @@ def build(
     log(f"{action} {full_path} ({len(llms_build.llms_full_txt):,} bytes)", color)
     log(f"{action} {len(markdown_files)} markdown files", color)
 
-    if verbose and llms_build.skipped:
-        log("Skipped files:", color="yellow", err=True)
+    if llms_build.skipped:
+        log_verbose("Skipped files:", color="yellow", err=True)
         for path, reason in llms_build.skipped:
-            log(f"- {path} ({reason})", color="yellow", err=True)
+            log_verbose(f"- {path} ({reason})", color="yellow", err=True)
 
     if llms_build.warnings:
         log("Warnings:", color="yellow", err=True)
@@ -199,17 +218,23 @@ def init(
         bool,
         typer.Option("--force", "-f", help="Overwrite existing llmstxt section"),
     ] = False,
+    quiet: Annotated[
+        bool,
+        typer.Option("--quiet", "-q", help="Suppress output (exit code only)"),
+    ] = False,
+    verbose: Annotated[
+        bool,
+        typer.Option("--verbose", "-v", help="Show detailed progress"),
+    ] = False,
 ) -> None:
     """Add llmstxt plugin config to mkdocs.yml."""
+    log, log_verbose = _make_logger(quiet, verbose)
+
     if not config.exists():
-        typer.secho(
-            f"Error: Config file not found: {config}",
-            fg="red",
-            err=True,
-        )
-        typer.secho(
+        log(f"Error: Config file not found: {config}", color="red", err=True)
+        log(
             "Create one first or specify path with --config.",
-            fg="yellow",
+            color="yellow",
             err=True,
         )
         raise typer.Exit(1)
@@ -228,9 +253,9 @@ def init(
     if plugins is None:
         plugins = []
     if not isinstance(plugins, (list, dict)):
-        typer.secho(
+        log(
             "Error: 'plugins' must be a list or mapping in mkdocs.yml.",
-            fg="red",
+            color="red",
             err=True,
         )
         raise typer.Exit(1)
@@ -248,14 +273,10 @@ def init(
         has_llmstxt = "llmstxt" in plugins
 
     if has_llmstxt and not force:
-        typer.secho(
-            "Error: llmstxt plugin already configured.",
-            fg="red",
-            err=True,
-        )
-        typer.secho(
+        log("Error: llmstxt plugin already configured.", color="red", err=True)
+        log(
             "Use --force to overwrite existing configuration.",
-            fg="yellow",
+            color="yellow",
             err=True,
         )
         raise typer.Exit(1)
@@ -337,7 +358,10 @@ def init(
 
     config.write_text(content, encoding="utf-8")
 
-    typer.echo(f"Added llmstxt plugin to {config}")
+    log(f"Added llmstxt plugin to {config}")
+    log_verbose(
+        "Configuration includes commented example for sections and markdown_description"
+    )
 
 
 @app.command()
@@ -348,39 +372,39 @@ def validate(
     ] = Path("mkdocs.yml"),
     quiet: Annotated[
         bool,
-        typer.Option("--quiet", "-q", help="Exit code only, no output"),
+        typer.Option("--quiet", "-q", help="Suppress output (exit code only)"),
+    ] = False,
+    verbose: Annotated[
+        bool,
+        typer.Option("--verbose", "-v", help="Show detailed config information"),
     ] = False,
 ) -> None:
     """Check config file validity."""
+    log, log_verbose = _make_logger(quiet, verbose)
+
     try:
         cfg = load_config(config)
-
-        # Compute total pages
-        total_pages = sum(len(pages) for pages in cfg.sections.values())
-
-        if not quiet:
-            typer.echo(f"Config valid: {config}")
-            typer.echo(f"  Site: {cfg.site_name}")
-            typer.echo(f"  Sections: {len(cfg.sections)}")
-            typer.echo(f"  Pages: {total_pages}")
-
     except FileNotFoundError:
-        if not quiet:
-            typer.secho(f"Config invalid: {config}", fg="red", err=True)
-            typer.secho(f"  Error: File not found: {config}", fg="red", err=True)
+        log(f"Config invalid: {config}", color="red", err=True)
+        log(f"  Error: File not found: {config}", color="red", err=True)
+        raise typer.Exit(1) from None
+    except (ValueError, yaml.YAMLError) as e:
+        log(f"Config invalid: {config}", color="red", err=True)
+        log(f"  Error: {e}", color="red", err=True)
         raise typer.Exit(1) from None
 
-    except ValueError as e:
-        if not quiet:
-            typer.secho(f"Config invalid: {config}", fg="red", err=True)
-            typer.secho(f"  Error: {e}", fg="red", err=True)
-        raise typer.Exit(1) from None
+    total_pages = sum(len(pages) for pages in cfg.sections.values())
 
-    except Exception as e:
-        if not quiet:
-            typer.secho(f"Config invalid: {config}", fg="red", err=True)
-            typer.secho(f"  Error: {e}", fg="red", err=True)
-        raise typer.Exit(1) from None
+    log(f"Config valid: {config}")
+    log(f"  Site: {cfg.site_name}")
+    log(f"  Sections: {len(cfg.sections)}")
+    log(f"  Pages: {total_pages}")
+
+    # Verbose: show section details
+    for section_name, pages in cfg.sections.items():
+        log_verbose(f"  {section_name}: {len(pages)} pages")
+        for page in pages:
+            log_verbose(f"    - {page}")
 
 
 if __name__ == "__main__":

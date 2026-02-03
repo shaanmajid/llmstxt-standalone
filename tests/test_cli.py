@@ -338,6 +338,56 @@ def test_init_includes_commented_example(tmp_path: Path):
     assert "# markdown_description" in content or "llmstxt" in content
 
 
+def test_init_quiet_success(tmp_path: Path):
+    """Test init --quiet suppresses output on success."""
+    config = tmp_path / "mkdocs.yml"
+    config.write_text("site_name: Test\n", encoding="utf-8")
+
+    result = runner.invoke(app, ["init", "--config", str(config), "--quiet"])
+
+    assert result.exit_code == 0
+    assert result.output.strip() == ""
+    # Config should still be modified
+    content = config.read_text(encoding="utf-8")
+    assert "llmstxt" in content
+
+
+def test_init_quiet_failure():
+    """Test init --quiet suppresses error output on failure."""
+    result = runner.invoke(
+        app, ["init", "--config", "/nonexistent/mkdocs.yml", "--quiet"]
+    )
+
+    assert result.exit_code == 1
+    assert result.output.strip() == ""
+
+
+def test_init_verbose(tmp_path: Path):
+    """Test init --verbose shows extra details."""
+    config = tmp_path / "mkdocs.yml"
+    config.write_text("site_name: Test\n", encoding="utf-8")
+
+    result = runner.invoke(app, ["init", "--config", str(config), "--verbose"])
+
+    assert result.exit_code == 0
+    assert "Added llmstxt plugin" in result.output
+    # Verbose should show what was added
+    assert "llmstxt" in result.output
+
+
+def test_init_quiet_force(tmp_path: Path):
+    """Test init --quiet --force works correctly together."""
+    config = tmp_path / "mkdocs.yml"
+    config.write_text("site_name: Test\nplugins:\n  - llmstxt\n", encoding="utf-8")
+
+    result = runner.invoke(app, ["init", "--config", str(config), "--quiet", "--force"])
+
+    assert result.exit_code == 0
+    assert result.output.strip() == ""
+    content = config.read_text(encoding="utf-8")
+    assert "llmstxt" in content
+
+
 # Tests for validate subcommand
 
 
@@ -407,3 +457,21 @@ def test_validate_quiet_failure(tmp_path: Path):
 
     assert result.exit_code == 1
     assert result.output.strip() == ""
+
+
+def test_validate_verbose():
+    """Test validate --verbose shows extra config details."""
+    result = runner.invoke(
+        app,
+        [
+            "validate",
+            "--config",
+            str(FIXTURES / "mkdocs_with_llmstxt.yml"),
+            "--verbose",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Config valid" in result.output
+    # Verbose should show section names
+    assert "Getting Started" in result.output
