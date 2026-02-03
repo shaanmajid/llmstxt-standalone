@@ -70,12 +70,17 @@ llmstxt-standalone init --config path/to/mkdocs.yml
 
 # Overwrite existing llmstxt config
 llmstxt-standalone init --force
+
+# Show detailed progress
+llmstxt-standalone init --verbose
 ```
 
 | Option | Short | Description |
 |--------|-------|-------------|
 | `--config` | `-c` | Path to mkdocs.yml (default: mkdocs.yml) |
 | `--force` | `-f` | Overwrite existing llmstxt section |
+| `--quiet` | `-q` | Suppress output |
+| `--verbose` | `-v` | Show detailed progress |
 
 ### validate
 
@@ -90,12 +95,16 @@ Config valid: mkdocs.yml
 
 # Exit code only (for scripts)
 llmstxt-standalone validate --quiet
+
+# Show section details
+llmstxt-standalone validate --verbose
 ```
 
 | Option | Short | Description |
 |--------|-------|-------------|
 | `--config` | `-c` | Path to mkdocs.yml (default: mkdocs.yml) |
-| `--quiet` | `-q` | Exit code only, no output |
+| `--quiet` | `-q` | Suppress output |
+| `--verbose` | `-v` | Show detailed config information |
 
 ### Global options
 
