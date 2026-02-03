@@ -8,6 +8,19 @@ from pathlib import Path
 from llmstxt_standalone.config import Config
 from llmstxt_standalone.convert import extract_title_from_html, html_to_markdown
 
+__all__ = [
+    "BuildResult",
+    "GenerateResult",
+    "PageMarkdown",
+    "build_llms_output",
+    "ensure_safe_md_path",
+    "generate_llms_txt",
+    "md_path_to_html_path",
+    "md_path_to_output_md_path",
+    "md_path_to_page_url",
+    "write_markdown_files",
+]
+
 
 def _escape_markdown_link_text(text: str) -> str:
     r"""Escape characters that break markdown link syntax.
@@ -32,7 +45,18 @@ def _is_index_md(md_path: str) -> bool:
     return md_path == "index.md" or md_path.endswith("/index.md")
 
 
-def _ensure_safe_md_path(md_path: str) -> Path:
+def ensure_safe_md_path(md_path: str) -> Path:
+    """Validate and convert a markdown path to a safe Path object.
+
+    Args:
+        md_path: Relative markdown file path (e.g., "install.md").
+
+    Returns:
+        Path object for the markdown file.
+
+    Raises:
+        ValueError: If path is absolute or contains '..'.
+    """
     path = Path(md_path)
     if path.is_absolute() or path.drive:
         raise ValueError(f"Markdown path must be relative: {md_path}")
@@ -63,7 +87,7 @@ def md_path_to_html_path(
         Path to the corresponding HTML file.
     """
     # Handle index.md at any level (root or nested like foo/bar/index.md)
-    safe_md_path = _ensure_safe_md_path(md_path)
+    safe_md_path = ensure_safe_md_path(md_path)
     if _is_index_md(md_path):
         html_path = site_dir / safe_md_path.with_suffix(".html")
         return _ensure_within_dir(site_dir, html_path, "HTML path")
@@ -117,7 +141,7 @@ def md_path_to_output_md_path(
         Path where the markdown file should be written.
     """
     # Handle index.md at any level (root or nested like foo/bar/index.md)
-    safe_md_path = _ensure_safe_md_path(md_path)
+    safe_md_path = ensure_safe_md_path(md_path)
     if _is_index_md(md_path):
         output_path = site_dir / safe_md_path
         return _ensure_within_dir(site_dir, output_path, "Output path")
@@ -149,7 +173,12 @@ class BuildResult:
 
 @dataclass
 class GenerateResult:
-    """Result of llms.txt generation with files written."""
+    """Result of llms.txt generation with files written.
+
+    Used by generate_llms_txt() for programmatic use cases that want
+    file writing handled automatically. The CLI uses BuildResult +
+    write_markdown_files() for more control over the write step.
+    """
 
     llms_txt: str
     llms_full_txt: str

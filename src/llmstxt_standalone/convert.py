@@ -6,6 +6,11 @@ import mdformat
 from bs4 import BeautifulSoup, NavigableString, Tag
 from markdownify import ATX, MarkdownConverter
 
+__all__ = [
+    "extract_title_from_html",
+    "html_to_markdown",
+]
+
 
 def _should_remove(tag: Tag) -> bool:
     """Check if a tag should be removed during autoclean."""
@@ -70,13 +75,14 @@ def _get_language(tag: Tag) -> str:
     return ""
 
 
-# Converter with mkdocs-llmstxt-compatible settings
-_converter = MarkdownConverter(
-    bullets="-",
-    code_language_callback=_get_language,
-    escape_underscores=False,
-    heading_style=ATX,
-)
+def _make_converter() -> MarkdownConverter:
+    """Create a MarkdownConverter with mkdocs-llmstxt-compatible settings."""
+    return MarkdownConverter(
+        bullets="-",
+        code_language_callback=_get_language,
+        escape_underscores=False,
+        heading_style=ATX,
+    )
 
 
 def extract_title_from_html(html: str, site_name: str | None = None) -> str | None:
@@ -154,5 +160,6 @@ def html_to_markdown(html: str, content_selector: str | None = None) -> str:
         return ""
 
     _autoclean(content)
-    md = _converter.convert_soup(content)
+    converter = _make_converter()
+    md = converter.convert_soup(content)
     return mdformat.text(md, options={"wrap": "no"}, extensions=("tables",))
