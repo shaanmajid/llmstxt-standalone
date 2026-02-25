@@ -55,7 +55,7 @@ test = ["pytest>=8.0.0", "pytest-cov>=6.0.0"]
 
 [tool.uv]
 # renovate: datasource=pypi depName=uv
-required-version = ">=0.9.27"
+required-version = ">=0.10.4"
 
 [build-system]
 # renovate: datasource=pypi depName=uv_build
