@@ -17,7 +17,7 @@ repos:
       - id: zizmor
 
   - repo: https://github.com/abravalheri/validate-pyproject
-    rev: v0.24.1
+    rev: v0.25
     hooks:
       - id: validate-pyproject
 
@@ -33,7 +33,7 @@ repos:
         types: [yaml]
 
   - repo: https://github.com/renovatebot/pre-commit-hooks
-    rev: 42.93.1
+    rev: 42.95.1
     hooks:
       - id: renovate-config-validator
         args: [--strict]
