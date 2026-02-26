@@ -33,7 +33,7 @@ repos:
         types: [yaml]
 
   - repo: https://github.com/renovatebot/pre-commit-hooks
-    rev: 43.25.8
+    rev: 43.26.1
     hooks:
       - id: renovate-config-validator
         args: [--strict]
