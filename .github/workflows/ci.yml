@@ -23,7 +23,7 @@ jobs:
       - uses: j178/prek-action@5337cb91e0fa35a7ff31b9ca345126d8bbbcdf16 # v2.0.6
         with:
           # renovate: datasource=pypi depName=prek
-          prek-version: "0.4.10"
+          prek-version: "0.4.11"
 
   typecheck:
     runs-on: ubuntu-latest
